@@ -1,0 +1,150 @@
+close all;
+clear;
+window_span = 13;
+match_probability = [10];
+timeVecTotal = linspace(0,360/6,360+1);
+% % 
+
+numTracks = 1000;
+t = linspace(0,60,360);
+noise_std = 40;
+exp_const = 0.0005;
+% [Y_f,norm] = sim_const(numTracks,exp_const,noise_std,t);
+% [Y_f,norm] = sim_slope(numTracks,exp_const,noise_std,t);
+[Y_f,norm] = sim_burst(numTracks,exp_const,noise_std,t);
+
+% control single inetensity data plotting
+plot_min = 0;
+plot_index = 0;
+plot_max = 0;
+if exist('selective_plot','var')
+   plot_max = 1+max(selective_plot); 
+end
+
+a = Y_f;
+b = norm;
+
+amp_pos_total = cell(length(match_probability),1);
+amp_neg_total = cell(length(match_probability),1);
+amp_var_total = cell(length(match_probability),1);
+
+numberOfEvents_total = [];
+numberOfSignalWithEvents_total = [];
+eventsPerSignal_total = [];
+
+for ss = 1:length(match_probability)
+
+    [time_stat_pos,time_stat_neg,time_stat_var,time_between_pos,rate_pos,rate_neg,amp_pos,...
+        amp_neg,amp_var,threshold_aggregate,slopeSignal,postPos,postNeg,postVar,PostPostPos,...
+        PostPostNeg,PostPostVar,numberOfEvents,numberOfSignalWithEvents,eventsPerSignal] = ...
+        analysis(a,b,timeVecTotal,window_span,match_probability(ss),plot_min,plot_index,plot_max);
+
+    amp_pos = amp_pos(2:end);
+    amp_neg = amp_neg(2:end);
+    amp_var = amp_var(2:end);
+    
+    amp_pos_total{ss} = amp_pos;
+    amp_var_total{ss} = amp_var;
+    amp_neg_total{ss} = amp_neg;
+    
+    numberOfEvents_total = [numberOfEvents_total,numberOfEvents];
+    numberOfSignalWithEvents_total = [numberOfSignalWithEvents_total,numberOfSignalWithEvents];
+    eventsPerSignal_total = [eventsPerSignal_total,mean(eventsPerSignal)];
+    
+    time_stat_pos = time_stat_pos(2:end);
+    time_stat_neg = time_stat_neg(2:end);
+    time_stat_var = time_stat_var(2:end);
+    time_between_pos = time_between_pos(2:end);
+    rate_pos = rate_pos(2:end);
+    rate_neg = rate_neg(2:end);
+
+    options = statset('MaxIter',1000);
+
+    figure;
+    yyaxis left
+    histogram(amp_var(abs(amp_var)<250),25);
+    ylabel('Counts');
+    yyaxis right
+    var_gauss = pdf('Normal',-250:0.5:250,0,std(amp_var(abs(amp_var)<100)));
+    plot(-250:0.5:250,var_gauss);
+    ylabel('PDF');
+    xlabel('Intesity [A.U]');
+    title('Quiescent Amplitudes');
+
+    figure;
+    histogram(time_stat_pos,100);
+    ylabel('Counts');
+    xlabel('Time [min]');
+    title('lengths of positive segments');
+    xlim([0,10]);
+
+    figure;
+    histogram(time_stat_neg,100);
+    ylabel('Counts');
+    xlabel('Time [min]');
+    title('lengths of negative segments');
+    xlim([0,10]);
+
+
+    figure;
+    histogram(time_stat_var,300);
+    xlabel('Time [min]');
+    title('Time between subsequent significant segments');
+    xlim([0,25]);
+
+    figure;
+    histogram(time_between_pos(time_between_pos<=45),30);
+    xlabel('Time [min]');
+    ylabel('Counts');
+    title('Time between increments');
+    xlim([0,45]);
+
+
+
+    amplitudes = [amp_pos;amp_neg;amp_var];
+    times = [time_stat_pos;time_stat_neg;time_stat_var];
+
+    figure; 
+    histogram(amp_pos(amp_pos<400),'FaceColor','g','BinWidth',5); hold on;
+    histogram(amp_var(abs(amp_var)<400),'FaceColor','b','BinWidth',5);
+    histogram(amp_neg(abs(amp_neg)<400),'FaceColor','r','BinWidth',5);
+    xlim([-400,400]); xlabel('Intensity [A.U]'); ylabel('Counts');
+    ylim([0,150]); 
+    ylabel('Counts');
+    title('3 Amplitude phases');
+    xlabel('Amplitudes [A.U]');
+
+
+
+    rates = amplitudes./times;
+
+    rate_pos = amp_pos./time_stat_pos;
+    rate_neg = amp_neg./time_stat_neg;
+    rate_var = amp_var./time_stat_var;
+
+
+
+    categories = [{'Negative'},{'Quiescent'},{'Positive'}];
+    figure;
+    histogram(postNeg);
+    xticks([-1,0,1]);
+    xticklabels(categories);
+    title('Segment types after significant negative');
+
+    figure;
+    histogram(postVar);
+    xticks([-1,0,1]);
+    xticklabels(categories);
+    title('Segment types after Quiescent segment');
+
+    figure;
+    histogram(postPos);
+    xticks([-1,0,1]);
+    xticklabels(categories);
+    title('Segment types after significant positive');
+
+% 
+end
+
+figure;
+bar(window_span,numberOfEvents_total./numberOfSignalWithEvents_total);

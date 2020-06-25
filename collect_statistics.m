@@ -53,6 +53,8 @@ background_std = [];
 background_mean = [];
 
 % control single inetensity data plotting
+% use these variables to plot batches of traces. 
+% usage example: set plot_min = 10; plot_max = 20;
 plot_min = 0;
 plot_index = 0;
 plot_max = 0;
